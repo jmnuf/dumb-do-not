@@ -5,7 +5,7 @@ const createTable = sqliteTableCreator((name) => `DumbDoNot_${name}`);
 
 export const users = createTable("users", {
   id: int("id", { mode: "number" }).primaryKey({ autoIncrement: true }),
-  name: text("name", { length: 256 }).notNull(),
+  name: text("name", { length: 256 }).unique().notNull(),
   password: text("password", { length: 256 }).notNull(),
   salt: text("salt", { length: 256 }).notNull(),
   createdAt: int("created_at", { mode: "timestamp" }).default(sql`(unixepoch())`).notNull(),

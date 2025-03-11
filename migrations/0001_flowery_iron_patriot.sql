@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `DumbDoNot_users_name_unique` ON `DumbDoNot_users` (`name`);
