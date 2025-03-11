@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@elysiajs/eden": "^1.2.0",
+    "@jmnuf/results": "^1.0.0",
     "@libsql/client": "^0.14.0",
     "@t3-oss/env-core": "^0.12.0",
     "@tailwindcss/vite": "^4.0.12",

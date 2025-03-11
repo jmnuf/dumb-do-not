@@ -5,6 +5,7 @@
       "name": "dumb-do-not",
       "dependencies": {
         "@elysiajs/eden": "^1.2.0",
+        "@jmnuf/results": "^1.0.0",
         "@libsql/client": "^0.14.0",
         "@t3-oss/env-core": "^0.12.0",
         "@tailwindcss/vite": "^4.0.12",
@@ -270,6 +271,8 @@
     "@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.19.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-+ZOE6pUkMOJfmxmBZElNOx72NKpIa/HFOMGzu8fqzQJ5kgf6aTGrcJaFsNiVMH4JKpMipyK+7k0n2UXN7a8YKQ=="],
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.19.12", "", { "os": "win32", "cpu": "x64" }, "sha512-T1QyPSDCyMXaO3pzBkF96E8xMkiRYbUEZADd29SyPGabqxMViNoii+NcK7eWJAEoU6RZyEm5lVSIjTmcdoB9HA=="],
+
+    "@jmnuf/results": ["@jmnuf/results@1.0.0", "", {}, "sha512-r4obM//16KWM3jcAXQDKc3U6YRvZb1/yFFdFy2ZaKiQKRWZdJjVk8yBgTCD0zkznqbYXtQ6mHIjUzozUJNo68w=="],
 
     "@jridgewell/gen-mapping": ["@jridgewell/gen-mapping@0.3.8", "", { "dependencies": { "@jridgewell/set-array": "^1.2.1", "@jridgewell/sourcemap-codec": "^1.4.10", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-imAbBGkb+ebQyxKgzv5Hu2nmROxoDOXHh80evxdoXNOrvAnVx7zimzc1Oo5h9RlfV4vPXaE2iM5pOFbvOCClWA=="],
 
