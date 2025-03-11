@@ -67,7 +67,7 @@ const pages = {
     },
   },
   "/sign-in": {
-    queryParser: z.object({
+    querySchema: z.object({
       username: z.string().optional(),
     }),
     Page({ query }) {

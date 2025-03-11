@@ -12,9 +12,11 @@ export type PageProps<TQueryParams extends EQueryParams = EQueryParams> = {
 };
 export type PageConfig<TQueryParams extends EQueryParams = EQueryParams> = {
   Page: (props: PageProps<TQueryParams>) => HTMLElement;
-  queryParser?: {
-    parse: (queryParams: Record<string, string | string[] | undefined>) => TQueryParams;
-  };
+  queryParser?: (queryParams: Record<string, string | string[] | undefined>) => TQueryParams | undefined;
+  querySchema?: { safeParse: (v: any) => { success: true; data: TQueryParams } | { success: false; error: Error }; }
+  onRequested?: (data: HistoryData) => void;
+} | {
+  redirectPath: string;
   onRequested?: (data: HistoryData) => void;
 };
 
@@ -47,35 +49,82 @@ export function setupRouting(app: HTMLElement) {
   root = app;
 
   const url = new URL(location.href);
-  let content;
   if (url.pathname in routes.pages) {
-    const config = routes.pages[url.pathname as PageRoute] as PageConfig;
-    const rawQueryParams = {} as Record<string, string | Array<string>>;
-    for (const [k, v] of url.searchParams.entries()) {
-      if (k in rawQueryParams) {
-        if (!Array.isArray(rawQueryParams[k])) {
-          rawQueryParams[k] = [rawQueryParams[k], v];
-          continue;
-        }
-        (rawQueryParams[k] as string[]).push()
-        continue;
-      }
-      rawQueryParams[k] = v;
-    }
-
-    let query: EQueryParams = rawQueryParams;
-    if (config.queryParser && config.queryParser) {
-      query = config.queryParser.parse(rawQueryParams)
-    }
-
-    content = config.Page({ prefetching: false, query, });
-  } else {
-    content = routes.e404();
-    app.appendChild(content);
+    loadRoute(url.pathname as PageRoute, url);
+    return;
   }
+  const content = routes.e404();
   app.appendChild(content);
 
   return router;
+}
+
+function loadRoute(route: PageRoute | (string & {}), url: URL = new URL(location.href)) {
+  if (!root) {
+    console.error("No root has been set for routing. Can't change routes if none is set");
+    return;
+  }
+  const runCallbacks = (route: PageRoute | null) => {
+    for (const cb of callbacks.pageChange) {
+      cb({ type: "pop", url, route });
+    }
+  };
+  if (prefetched.routes[location.href]) {
+    root.innerHTML = "";
+    root.appendChild(prefetched.routes[location.href].content);
+    runCallbacks(route as PageRoute);
+    return;
+  }
+  if (!(route in routes.pages)) {
+    root.innerHTML = "";
+    const content = routes.e404();
+    root.appendChild(content);
+    runCallbacks(null);
+    return;
+  }
+  const config = routes.pages[route as PageRoute] as PageConfig;
+  const rawQueryParams = {} as Record<string, string | Array<string>>;
+  for (const [k, v] of url.searchParams.entries()) {
+    if (k in rawQueryParams) {
+      if (!Array.isArray(rawQueryParams[k])) {
+        rawQueryParams[k] = [rawQueryParams[k], v];
+        continue;
+      }
+      (rawQueryParams[k] as string[]).push()
+      continue;
+    }
+    rawQueryParams[k] = v;
+  }
+
+  let query: EQueryParams | undefined = rawQueryParams;
+  if ("redirectPath" in config) {
+    const redirect = config.redirectPath;
+    if (redirect.startsWith("/")) {
+      const redirectURL = new URL(redirect, location.origin);
+      loadRoute(redirect, redirectURL);
+      return;
+    }
+    const anchor = E("a", { href: redirect, target: "_self" });
+    anchor.click();
+    return;
+  } else {
+    if (typeof config.queryParser === "function") {
+      query = config.queryParser(rawQueryParams)
+    } else if (config.querySchema && typeof config.querySchema === "object" && typeof config.querySchema.safeParse === "function") {
+      const result = config.querySchema.safeParse(rawQueryParams);
+      if (!result.success) {
+        console.error(result.error);
+        query = undefined;
+      } else {
+        query = result.data;
+      }
+    }
+
+    root.innerHTML = "";
+    const content = config.Page({ query });
+    root.appendChild(content);
+    runCallbacks(route as PageRoute);
+  }
 }
 
 window.addEventListener("popstate", () => {
@@ -88,32 +137,80 @@ window.addEventListener("popstate", () => {
     child.remove();
   }
   const url = new URL(location.href);
-  let content;
-  let route: PageRoute | null = null;
-  if (url.pathname in routes.pages) {
-    route = url.pathname as PageRoute;
-    if (location.href in prefetched.routes) {
-      content = prefetched.routes[location.href].content;
-    } else {
-      content = routes.pages[url.pathname as PageRoute].Page({});
-    }
-    root.appendChild(content);
-  } else {
-    content = routes.e404();
-  }
-  root.appendChild(content);
-  for (const cb of callbacks.pageChange) {
-    cb({ type: "pop", url, route });
-  }
+  loadRoute(url.pathname as PageRoute, url);
 });
 
 const prefetched = {
-  routes: {} as Record<PageLink | (string & {}), { content: HTMLElement; timeout: number; length: number; }>,
-  www: {} as Record<string, { timeout: number; start: number; length: number; }>,
+  routes: {} as Record<PageLink | (string & {}), { content: HTMLElement; timeout: number; lifetime: number; }>,
+  www: {} as Record<string, { timeout: number | null; requestedAt: number; response?: Response; lifetime: number; abort?: () => void; }>,
 };
+function addPrefetchedRoute(link: PageLink) {
+  if (link in prefetched.routes) {
+    clearTimeout(prefetched.routes[link].timeout);
+  }
+  const route = (new URL(link, location.origin)).pathname as PageRoute;
+  const config = routes.pages[route] as PageConfig;
+  if ("redirectPath" in config) {
+    const redirect = config.redirectPath;
+    if (redirect.startsWith("/")) {
+      addPrefetchedRoute(redirect as PageLink);
+      return;
+    }
+
+    return;
+  }
+  const content = config.Page({ prefetching: true, });
+
+  // 1 minute
+  const lifetime = 1000 * 60;
+  prefetched.routes[link] = {
+    content,
+    lifetime,
+    timeout: setTimeout(() => {
+      delete prefetched.routes[link];
+    }, length) as unknown as number,
+  };
+}
+function addPrefetchedLink(link: string) {
+  // 1 second
+  const lifetime = 1000;
+
+  if (link in prefetched.www) {
+    if (prefetched.www[link].timeout !== null) {
+      clearTimeout(prefetched.www[link].timeout);
+    }
+    delete prefetched.www[link];
+  }
+  const controller = new AbortController();
+  const data = {
+    timeout: null,
+    requestedAt: Date.now(),
+    lifetime,
+    abort: () => controller.abort(),
+  } as typeof prefetched["www"][string];
+
+  fetch(link, { signal: controller.signal })
+    .then((response) => {
+      delete data.abort;
+      data.response = response;
+      data.timeout = setTimeout(() => {
+        delete prefetched.www[link];
+      }, lifetime) as unknown as number;
+    })
+    .catch(() => {
+      if (data.timeout !== null) {
+        clearTimeout(data.timeout);
+      }
+      if (link in prefetched.www) {
+        delete prefetched.www[link];
+      }
+    });
+  prefetched.www[link] = data;
+}
 export const router = {
   push(route: PageLink, data: HistoryData = {}) {
-    return history.pushState(data, "", route);
+    history.pushState(data, "", route);
+    loadRoute(route);
   },
   pop: () => history.back(),
   online: () => navigator.onLine,
@@ -123,32 +220,34 @@ export const router = {
     callbacks[event] = listeners;
   },
   async prefetch(link: PageLink | (string & {})) {
-    const length = 1000 * 60;
     const url = new URL(link, location.origin);
     const pageRoutes = Object.keys(routes.pages) as PageRoute[];
-    const pageIndex = pageRoutes.findIndex((x) => x === url.pathname);
-    if (pageIndex !== -1) {
-      const path = pageRoutes[pageIndex];
-      if (link in prefetched.routes) {
-        clearTimeout(prefetched.routes[link].timeout);
-      }
-      const page = routes.pages[path].Page({ prefetching: true });
-      const timeout = setTimeout(() => {
-        delete prefetched.routes[link];
-      }, length) as unknown as number;
-      prefetched.routes[link] = { content: page, timeout, length };
+    const pageRoute = pageRoutes.find((x) => x === url.pathname);
+    if (pageRoute) {
+      addPrefetchedRoute(link as PageLink);
       return;
     }
-    if (link in prefetched.www) {
-      clearTimeout(prefetched.www[link].timeout);
-    }
-    await fetch(link);
-    const timeout = setTimeout(() => {
-      delete prefetched.www[link];
-    }, length) as unknown as number;
-    prefetched.www[link] = { timeout, start: Date.now(), length };
+    addPrefetchedLink(link);
   },
 };
+
+const trueFetch = window.fetch;
+
+window.fetch = async (input, init) => {
+  let url: string | undefined;
+  if (typeof input === "string") {
+    url = input;
+  } else if (input instanceof Request) {
+    url = input.url;
+  } else if (input instanceof URL) {
+    url = input.toString();
+  }
+  if (url && url in prefetched.www) {
+    const data = prefetched.www[url];
+    if (data.response) return data.response;
+  }
+  return trueFetch(input, init);
+}
 
 export type LinkProps = {
   href: PageLink;
