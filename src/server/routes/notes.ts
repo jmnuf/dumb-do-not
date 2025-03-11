@@ -16,7 +16,7 @@ export const note = new Elysia({ prefix: "/note" })
     }
 
     const session = cookieResult.session;
-    const user = await getUser(session.user);
+    const user = await getUser(session.user.id);
     if (!user) return error(401);
     const result = (
       await db.insert(notes)
@@ -56,7 +56,7 @@ export const note = new Elysia({ prefix: "/note" })
     const data = await getNote(noteId);
     if (!data) return { data, session: session.status } as const;
     if (!data.public) {
-      const user = await getUser(session.user);
+      const user = await getUser(session.user.id);
       if (!user || user.id != data.ownerId) {
         return error(401);
       }

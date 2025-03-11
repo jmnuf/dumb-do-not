@@ -1,12 +1,9 @@
-import './style.css'
-import { initPWA } from './pwa.ts'
+import { initPWA } from './pwa.ts';
+import { setupRouting } from './routing.ts';
+import './style.css';
 
-const app = document.querySelector<HTMLDivElement>('#app')!
-app.innerHTML = `
-<div>
-  <h1>dumb-do-not</h1>
-  <p>A simple todo app</p>
-</div>
-`
+const app = document.querySelector<HTMLDivElement>('#app')!;
 
-initPWA(app)
+setupRouting(app);
+
+initPWA(document.body);

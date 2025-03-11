@@ -1,12 +1,24 @@
 import { sql, eq } from "drizzle-orm";
-import { db, sessions } from "./db";
 import { z } from "zod";
 import type { Cookie } from "elysia";
+import { Buffer } from "node:buffer";
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+} from "node:crypto";
+import { env } from "../env";
+import { db, sessions } from "./db";
+
+const IV_LENGTH = 16;
 
 export const SESSION_COOKIE = "X-DumbDoNot-User";
 export const SESSION_COOKIE_SCHEMA = z.object({
   session: z.coerce.number(),
-  user: z.coerce.number(),
+  user: z.object({
+    id: z.coerce.number(),
+    name: z.string(),
+  }),
 });
 export type SessionCookie = z.infer<typeof SESSION_COOKIE_SCHEMA>;
 export type Cookies = Record<string, Cookie<string | undefined>>;
@@ -16,7 +28,7 @@ export async function getSessionDataFromCookie(userSessionCookie: string | undef
   if (!userSessionCookie) {
     return false;
   }
-  const userSessionResult = SESSION_COOKIE_SCHEMA.safeParse(userSessionCookie);
+  const userSessionResult = decryptCookie(userSessionCookie);
   if (!userSessionResult.success) {
     return null;
   }
@@ -43,7 +55,7 @@ export async function checkSessionData(sessionData: z.infer<typeof SESSION_COOKI
     delete cookies[SESSION_COOKIE];
     return "expired";
   }
-  if (activeSession.userId != sessionData.user) {
+  if (activeSession.userId != sessionData.user.id) {
     delete cookies[SESSION_COOKIE];
     return "invalid";
   }
@@ -79,3 +91,32 @@ export async function handleSessionCookieCheck<TUnAuthed, TUnAuthorized>(
 
   return { handled: false, session: { id: sessionData.session, user: sessionData.user, status: session } } as const;
 }
+
+export const encryptCookie = (data: SessionCookie) => {
+  const stringifiedData = JSON.stringify(data);
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(
+    "aes-256-cbc",
+    Buffer.from(env.ENCRYPTION_KEY),
+    iv
+  );
+  let encrypted = cipher.update(stringifiedData);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString("hex") + ":" + encrypted.toString("hex");
+};
+
+const decryptCookie = (encryptedData: string) => {
+  const [ivHex, encryptedTextHex] = encryptedData.split(":");
+  const iv = Buffer.from(ivHex, "hex");
+  const encryptedText = Buffer.from(encryptedTextHex, "hex");
+  const decipher = createDecipheriv(
+    "aes-256-cbc",
+    Buffer.from(env.ENCRYPTION_KEY),
+    iv
+  );
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  const data = JSON.parse(decrypted.toString());
+  return SESSION_COOKIE_SCHEMA.safeParse(data);
+};
+

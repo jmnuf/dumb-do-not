@@ -16,7 +16,7 @@ export const notebook = new Elysia({ prefix: "/notebook" })
     }
 
     const session = cookieResult.session;
-    const user = await getUser(session.user);
+    const user = await getUser(session.user.id);
     if (!user) return error(401);
     const result = (
       await db.insert(notebooks)
@@ -53,7 +53,7 @@ export const notebook = new Elysia({ prefix: "/notebook" })
 
     const data = await getNotebook(notebookId);
     if (!data) return { data, session: session.status };
-    if (session.user != data.owner.id && !data.public) {
+    if (session.user.id != data.owner.id && !data.public) {
       return error(401);
     }
     return { data, session: session.status } as const;
@@ -89,7 +89,7 @@ export async function getNotebook(notebookId: number) {
 }
 
 export async function publicNotebooksByUser(userId: number) {
-  const data = await db.select({ id: notebooks.id })
+  const data = await db.select({ id: notebooks.id, name: notebooks.name })
     .from(notebooks)
     .where(
       and(
@@ -97,5 +97,5 @@ export async function publicNotebooksByUser(userId: number) {
         eq(notebooks.public, true)
       )
     );
-  return data.map((data) => data.id);
+  return data;
 }

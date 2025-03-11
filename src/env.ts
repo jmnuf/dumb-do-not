@@ -5,6 +5,7 @@ export const env = createEnv({
   server: {
     TURSO_AUTH_TOKEN: z.string(),
     TURSO_DATABASE_URL: z.string(),
+    ENCRYPTION_KEY: z.string(),
   },
   shared: {
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
