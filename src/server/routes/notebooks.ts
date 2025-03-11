@@ -88,14 +88,16 @@ export async function getNotebook(notebookId: number) {
   return Object.assign(notebook, { notes: notebookNotes, owner: notebook.owner! });
 }
 
-export async function publicNotebooksByUser(userId: number) {
+export async function publicNotebooksByUser(cfg: { userId: number; limit: number; offset: number; }) {
   const data = await db.select({ id: notebooks.id, name: notebooks.name })
     .from(notebooks)
     .where(
       and(
-        eq(notebooks.ownerId, sql`${userId}`),
+        eq(notebooks.ownerId, sql`${cfg.userId}`),
         eq(notebooks.public, true)
       )
-    );
+    )
+    .limit(cfg.limit)
+    .offset(cfg.limit * cfg.offset);
   return data;
 }

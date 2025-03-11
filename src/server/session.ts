@@ -24,7 +24,7 @@ export type SessionCookie = z.infer<typeof SESSION_COOKIE_SCHEMA>;
 export type Cookies = Record<string, Cookie<string | undefined>>;
 export type SessionStatus = "none" | "expired" | "active" | "invalid";
 
-export async function getSessionDataFromCookie(userSessionCookie: string | undefined) {
+function getSessionDataFromCookie(userSessionCookie: string | undefined) {
   if (!userSessionCookie) {
     return false;
   }
@@ -35,7 +35,7 @@ export async function getSessionDataFromCookie(userSessionCookie: string | undef
   return userSessionResult.data;
 }
 
-export async function checkSessionData(sessionData: z.infer<typeof SESSION_COOKIE_SCHEMA>, cookies: Cookies): Promise<SessionStatus> {
+async function checkSessionData(sessionData: z.infer<typeof SESSION_COOKIE_SCHEMA>, cookies: Cookies): Promise<SessionStatus> {
   const activeSession = (
     await db.select({
       now: sql<number>`(unixepoch())`.mapWith((v) => new Date(v)).as("now"),
@@ -69,7 +69,7 @@ export async function handleSessionCookieCheck<TUnAuthed, TUnAuthorized>(
   onUnAuthorized: () => TUnAuthorized
 ) {
   const cookie = cookies[SESSION_COOKIE];
-  const sessionData = await getSessionDataFromCookie(cookie.value);
+  const sessionData = getSessionDataFromCookie(cookie.value);
   if (sessionData === null) {
     const response = await onUnAuthorized();
     return { handled: true, response } as const;
