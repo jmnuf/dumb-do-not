@@ -1,7 +1,7 @@
 import { Link, router } from "./routing";
 import type { PageProps, PageConfig } from "./routing";
 import { createSignal, E } from "./E";
-import { api, apiToSignal } from "./api";
+import { api, apiSignal } from "./api";
 import { z } from "zod";
 
 type UserData = {
@@ -16,7 +16,7 @@ const user: UserData = {
 const pages = {
   "/": {
     Page(_: PageProps) {
-      const authedRequest = apiToSignal<{ authed: false } | { authed: true; session: { id: number; user: UserData; }; }>(api.user.authed.get());
+      const authedRequest = apiSignal(api.user.authed.get());
       const status = authedRequest.computed((x) => x.done ? x.data : null);
       const message = status.computed(
         (x) => x != null
@@ -51,7 +51,7 @@ const pages = {
         router.push("/");
         return E("h2", { children: "No logged in user data. Redirecting" });
       }
-      const fetchResult = apiToSignal<{ data: { id: number; name: string; }[] }>(api.user({ userId: user.id }).notebooks.get());
+      const fetchResult = apiSignal(api.user({ userId: user.id }).notebooks.get());
       const message = fetchResult.computed((x) => !x.done
         ? "Loading notebooks..."
         : x.data != null

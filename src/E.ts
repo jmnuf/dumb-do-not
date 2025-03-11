@@ -1,3 +1,4 @@
+import { Res, Result } from "@jmnuf/results";
 
 type Primitive = string | number | bigint;
 type ChildNodePrimitive = string | number | bigint | HTMLElement | SimpSignal<any>;
@@ -206,5 +207,23 @@ export function createSignal(init?: any) {
   };
 
   return signal;
+}
+
+export function createPromiseSignal<T>(promise: Promise<T>): SimpSignal<{ done: false } | { done: true; result: Result<T> }>;
+export function createPromiseSignal<T, U>(promise: Promise<T>, mapper: (v: T) => U): SimpSignal<{ done: false } | { done: true; result: Result<U> }>;
+export function createPromiseSignal(promise: Promise<any>, mapper?: (v: any) => any) {
+  const doneSignal = createSignal(false);
+  let result: Result<any> = Res.Ok(null);
+  if (typeof mapper === "function") {
+    promise = promise.then((value) => mapper(value));
+  }
+  promise.then((value: any) => {
+    doneSignal(() => true);
+    result = Res.Ok(value);
+  }).catch((error) => {
+    doneSignal(() => true);
+    result = Res.Err(error);
+  });
+  return doneSignal.computed((done) => !done ? { done } : { done, result });
 }
 

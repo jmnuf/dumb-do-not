@@ -1,23 +1,21 @@
 import { treaty, type Treaty } from "@elysiajs/eden";
 import type { App } from "./server";
-import { createSignal } from "./E";
+import { createPromiseSignal } from "./E";
 
 export const api = treaty<App>(location.host + "/api");
 
-export function apiToSignal<T>(promise: Promise<Treaty.TreatyResponse<{ 200: T }>>) {
-  type FetchData =
-    | { done: false }
-    | {
-      done: true;
-      data: T | null;
-      error: { status: unknown; value: unknown } | { status: null; value: Error } | null
-    };
-  const signal = createSignal<FetchData>({ done: false });
-  promise.then(({ data, error }) => {
-    signal(() => ({ done: true, data, error }));
-  }).catch((value: Error) => {
-    signal(() => ({ done: true, data: null, error: { status: null, value } }));
+export function apiSignal<T>(promise: Promise<Treaty.TreatyResponse<{ 200: T }>>) {
+  const requestSignal = createPromiseSignal(promise);
+  const statusSignal = requestSignal.computed((status) => {
+    if (!status.done) {
+      return status;
+    }
+    const result = status.result;
+    if (!result.ok) {
+      return { done: true as const, data: null, error: result.error };
+    }
+    return { done: true as const, data: result.value.data, error: result.value.error?.value };
   });
-  return signal;
+  return statusSignal;
 }
 
