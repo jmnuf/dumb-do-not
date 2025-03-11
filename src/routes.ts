@@ -3,6 +3,7 @@ import type { PageProps, PageConfig } from "./routing";
 import { createSignal, E } from "./E";
 import { api, apiSignal } from "./api";
 import { z } from "zod";
+import type { Treaty } from "@elysiajs/eden";
 
 type UserData = {
   id: number;
@@ -16,7 +17,7 @@ const user: UserData = {
 const pages = {
   "/": {
     Page(_: PageProps) {
-      const authedRequest = apiSignal(api.user.authed.get());
+      const authedRequest = apiSignal(api.user.isauthed.get());
       const status = authedRequest.computed((x) => x.done ? x.data : null);
       const message = status.computed(
         (x) => x != null
@@ -51,11 +52,11 @@ const pages = {
         router.push("/");
         return E("h2", { children: "No logged in user data. Redirecting" });
       }
-      const fetchResult = apiSignal(api.user({ userId: user.id }).notebooks.get());
+      const fetchResult = apiSignal(api.user({ userId: user.id }).notebooks.get({ query: { limit: 50, offset: 0 } }));
       const message = fetchResult.computed((x) => !x.done
         ? "Loading notebooks..."
         : x.data != null
-          ? x.data.data.map((nb) => "- " + nb.name).join("\n")
+          ? x.data.list.map((nb) => "- " + nb.name).join("\n")
           : "Failed to load your notebooks :("
       );
       return E("div", {
@@ -71,23 +72,44 @@ const pages = {
       username: z.string().optional(),
     }),
     Page({ query }) {
+      query?.username;
+      return E("div", {
+        children: [
+          E("h2", { className: "text-center", children: "Coming back?\n¿Why?" }),
+        ],
+      });
+    },
+  },
+  "/sign-up": {
+    querySchema: z.object({
+      username: z.string().optional(),
+    }),
+    Page({ query }) {
       const qUsername = query?.username;
 
       const username = createSignal(typeof qUsername === "string" ? qUsername : "");
       const password = createSignal("");
       const create = (username: string, password: string) => api.user.new.post({ username, password });
-      type CreationData = { created: false; } | {
-        created: true;
-        id: number;
-        sessionCreated: boolean;
-        message: string;
-      };
-      type Status = { running: boolean; done: false; } | { running: boolean; done: true; data: CreationData };
+      type CreatedData = ReturnType<(typeof create)> extends Promise<Treaty.TreatyResponse<{ 200: infer TData }>> ? TData : never;
+      type Status =
+        | { running: false; done: false; }
+        | { running: true; done: false; }
+        | { running: true; done: true; data: CreatedData | null; error: unknown }
+        | { running: false; done: true; data: CreatedData | null; error: unknown };
       const status = createSignal<Status>({ running: false, done: false });
       const created = status.computed((status) => !status.running && status.done && status.data ? status.data : null);
       created.listen(({ cur }) => {
         if (!cur) return;
-        router.push("/u/profile");
+        if (cur.created) {
+          if (cur.sessionCreated) {
+            router.push("/u/profile");
+            return;
+          }
+          router.push("/sign-in");
+          return;
+        }
+        // TODO: Add a toast to display the backend's response message
+        console.log(cur.message);
       });
 
       return E("div", {
@@ -117,7 +139,7 @@ const pages = {
               E("button", {
                 className: "md:col-span-2",
                 type: "submit",
-                children: "Sign Up",
+                children: "Break In!",
               })
             ],
             onSubmit(event: SubmitEvent) {

@@ -134,8 +134,8 @@ export const user = new Elysia({ prefix: "/user" })
   })
   .guard({ params: t.Object({ userId: t.Integer(), }), })
   .get("/:userId/notebooks", async ({ cookie: cookies, query, params: { userId }, error }) => {
-    const limit = query.limit;
-    const offset = query.offset + 1;
+    const limit = query.limit ?? 25;
+    const offset = (query.offset ?? 0) + 1;
     const cookieResult = await handleSessionCookieCheck(
       cookies,
       async (session) => {
@@ -162,10 +162,10 @@ export const user = new Elysia({ prefix: "/user" })
       .limit(limit).offset(limit * offset);
     return { list, session }
   }, {
-    query: t.Object({
-      limit: t.Integer({ minimum: 1, default: 25 }),
-      offset: t.Integer({ minimum: 0, default: 0 }),
-    }),
+    query: t.Optional(t.Object({
+      limit: t.Integer({ minimum: 1 }),
+      offset: t.Integer({ minimum: 0 }),
+    })),
     response: {
       200: t.Object({
         list: t.Array(t.Object({ id: t.Number(), name: t.String(), })),
