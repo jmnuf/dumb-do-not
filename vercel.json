@@ -1,8 +1,8 @@
 {
   "devCommand": "vite --port $PORT",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/__elysia" },
-    { "source": "/:path((?!api/).*)", "destination": "/" }
+    { "source": "/api/(.*)", "destination": "/api/elysia" },
+    { "source": "/((?!api/).*)", "destination": "/" }
   ],
   "crons": [
     { "path": "/api/cron/kill-sessions", "schedule": "0 0 * * *" }
