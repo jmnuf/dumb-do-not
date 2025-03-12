@@ -1,9 +1,10 @@
-import { app } from "../src/server/index.ts";
+import { app } from "../src/server/index";
 
-// export const config = {
-//   runtime: "edge",
-// };
+export const config = {
+  runtime: "edge",
+};
 
-
-export default app.fetch;
+export default async function(request: Request) {
+  return app.fetch(request);
+}
 

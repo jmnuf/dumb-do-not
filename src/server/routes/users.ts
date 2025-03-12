@@ -1,9 +1,10 @@
 import { Elysia, t } from "elysia";
 import { sql, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { db, users, notebooks, sessions } from "../db";
-import { publicNotebooksByUser } from "./notebooks";
-import { encryptCookie, handleSessionCookieCheck, SESSION_COOKIE } from "../session";
+import { db, users, notebooks, sessions } from "../db/index.ts";
+import { env } from "../../env.ts";
+import { publicNotebooksByUser } from "./notebooks.ts";
+import { encryptCookie, handleSessionCookieCheck, SESSION_COOKIE } from "../session.ts";
 import { Res } from "@jmnuf/results";
 
 export const user = new Elysia({ prefix: "/user" })
@@ -64,10 +65,12 @@ export const user = new Elysia({ prefix: "/user" })
     if (!sessionResult.ok) {
       response.sessionCreated = false;
     } else {
-      cookies[SESSION_COOKIE].value = encryptCookie({
+      const cookie = cookies[SESSION_COOKIE];
+      cookie.value = await encryptCookie({
         session: sessionResult.value.id,
         user: { id: user.id, name },
       });
+      cookie.secure = env.NODE_ENV === "production";
     }
     return response;
   }, {
@@ -89,7 +92,6 @@ export const user = new Elysia({ prefix: "/user" })
   })
   .post("/login", async ({ cookie: cookies, body }) => {
     const cookie = cookies[SESSION_COOKIE];
-    // TODO: Maybe actually validate that it's a real account
     const checkResult = await handleSessionCookieCheck(
       cookies,
       () => true,
@@ -111,10 +113,11 @@ export const user = new Elysia({ prefix: "/user" })
     }
     const sessionId = results[0].id;
     const userData = { id: user.id, name: user.name };
-    cookie.value = encryptCookie({
+    cookie.value = await encryptCookie({
       session: sessionId,
       user: userData,
     });
+    cookie.secure = env.NODE_ENV === "production";
     return { ok: true, message: "Succesfully logged in" as string, user: userData };
   }, {
     body: t.Object({ username: t.String(), password: t.String() }),

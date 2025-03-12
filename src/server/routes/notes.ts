@@ -1,8 +1,8 @@
 import { Elysia, t } from "elysia";
 import { sql, eq, and } from "drizzle-orm";
-import { db, notes, notebooks, todos } from "../db";
-import { getUser } from "./users";
-import { handleSessionCookieCheck } from "../session";
+import { db, notes, notebooks, todos } from "../db/index.ts";
+import { getUser } from "./users.ts";
+import { handleSessionCookieCheck } from "../session.ts";
 
 export const note = new Elysia({ prefix: "/note" })
   .post("/new", async ({ cookie: cookies, body, error }) => {

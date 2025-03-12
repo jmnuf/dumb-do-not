@@ -1,16 +1,10 @@
 import { sql, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Cookie } from "elysia";
-import { Buffer } from "node:buffer";
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-} from "node:crypto";
-import { env } from "../env";
-import { db, sessions } from "./db";
+import { Res } from "@jmnuf/results";
 
-const IV_LENGTH = 16;
+import { encrypt, decrypt } from "./encryption.ts";
+import { db, sessions } from "./db/index.ts";
 
 export const SESSION_COOKIE = "X-DumbDoNot-User";
 export const SESSION_COOKIE_SCHEMA = z.object({
@@ -24,11 +18,16 @@ export type SessionCookie = z.infer<typeof SESSION_COOKIE_SCHEMA>;
 export type Cookies = Record<string, Cookie<string | undefined>>;
 export type SessionStatus = "none" | "expired" | "active" | "invalid";
 
-function getSessionDataFromCookie(userSessionCookie: string | undefined) {
+async function getSessionDataFromCookie(userSessionCookie: string | undefined) {
   if (!userSessionCookie) {
     return false;
   }
-  const userSessionResult = decryptCookie(userSessionCookie);
+  const decryptResult = await decryptCookie(userSessionCookie);
+  if (!decryptResult.ok) {
+    console.error("CookieDecryptionError:", decryptResult.error);
+    return null;
+  }
+  const userSessionResult = decryptResult.value;
   if (!userSessionResult.success) {
     return null;
   }
@@ -69,7 +68,7 @@ export async function handleSessionCookieCheck<TUnAuthed, TUnAuthorized>(
   onUnAuthorized: () => TUnAuthorized
 ) {
   const cookie = cookies[SESSION_COOKIE];
-  const sessionData = getSessionDataFromCookie(cookie.value);
+  const sessionData = await getSessionDataFromCookie(cookie.value);
   if (sessionData === null) {
     const response = await onUnAuthorized();
     return { handled: true, response } as const;
@@ -92,31 +91,12 @@ export async function handleSessionCookieCheck<TUnAuthed, TUnAuthorized>(
   return { handled: false, session: { id: sessionData.session, user: sessionData.user, status: session } } as const;
 }
 
-export const encryptCookie = (data: SessionCookie) => {
-  const stringifiedData = JSON.stringify(data);
-  const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(
-    "aes-256-cbc",
-    Buffer.from(env.ENCRYPTION_KEY),
-    iv
-  );
-  let encrypted = cipher.update(stringifiedData);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString("hex") + ":" + encrypted.toString("hex");
+export const encryptCookie = (data: SessionCookie, key?: CryptoKey) => {
+  return encrypt(data, key);
 };
 
-const decryptCookie = (encryptedData: string) => {
-  const [ivHex, encryptedTextHex] = encryptedData.split(":");
-  const iv = Buffer.from(ivHex, "hex");
-  const encryptedText = Buffer.from(encryptedTextHex, "hex");
-  const decipher = createDecipheriv(
-    "aes-256-cbc",
-    Buffer.from(env.ENCRYPTION_KEY),
-    iv
-  );
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  const data = JSON.parse(decrypted.toString());
+const decryptCookie = (encryptedData: string, key?: CryptoKey) => Res.asyncCall(async () => {
+  const data = await decrypt(encryptedData, key);
   return SESSION_COOKIE_SCHEMA.safeParse(data);
-};
+});
 

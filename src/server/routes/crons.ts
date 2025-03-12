@@ -1,6 +1,6 @@
 import { Elysia } from "elysia";
 import { sql, lte } from "drizzle-orm";
-import { db, sessions } from "../db";
+import { db, sessions } from "../db/index.ts";
 
 export const cron = new Elysia({ prefix: "/cron" })
   .get("/kill-sessions", async () => {
