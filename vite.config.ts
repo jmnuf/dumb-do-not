@@ -1,9 +1,20 @@
+import path from 'path';
 import { VitePWA } from "vite-plugin-pwa";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite"
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@elt': path.resolve(__dirname, './src/elt'),
+    },
+  },
+  esbuild: {
+    jsx: 'automatic',
+    jsxFactory: 'jsx',
+    jsxImportSource: '@elt',
+  },
   plugins: [
     tailwindcss(),
     VitePWA({
