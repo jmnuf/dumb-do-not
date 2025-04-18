@@ -3,7 +3,6 @@ import { createSignal } from "@jmnuf/wuonix";
 
 import { routesBuilder } from "./routing";
 // import type { EFC } from "./E";
-import { E, qE } from "./E";
 import { api, apiGeneratorSignal } from "./api";
 import { pages as testPages } from "./test-routes";
 
@@ -169,13 +168,13 @@ export const routes = routesBuilder()
         const ref = query?.ref;
         console.log(ref);
         console.log(data);
-        return qE("div", "text-center", [
-          qE("h1", "font-bold text-4xl", "Dumb Do Not"),
-          qE("h2", "font-bold text-2xl", "Dumb Notes For Dumb Me"),
-          qE("p", [
-            "Page under construction",
-          ]),
-        ]);
+        return (
+          <div className="text-center">
+            <h1 className="font-bold text-4xl">Dumb Do Not</h1>
+            <h2 className="font-bold text-2xl">Dumb Notes For Dumb Me</h2>
+            <p>Page under construction</p>
+          </div>
+        );
       }))
   .route("/generator-example", (rb) =>
     rb.pageData({
@@ -214,50 +213,52 @@ export const routes = routesBuilder()
         });
         return { title, text, signal: controller.signal, abort: controller.abort.bind(controller) }
       };
-      return qE("div", [
-        // ExampleRoutes(),
-        qE("h1", "Streaming API Endpoint example"),
-        qE("h2", "Simple Streaming Through Generator Functions"),
-        qE("h2", "text-xl font-bold", title),
-        // H(2, title, { className: "text-xl font-bold" }),
-        qE("div", "flex gap-4", [
-          E("button", {
-            className: "p-1 bg-sky-100 text-slate-900 cursor-pointer disabled:cursor-not-allowed border border-cyan-700 rounded",
-            children: "Start Stream",
-            disabled: startBtnDisabled,
-            onClick() {
-              if (startBtnDisabled.value) return;
-              title(() => "Requesting...");
-              startBtnDisabled(() => true);
-              const call = createStreamingCall();
-              call.title.listen(({ cur }) => {
-                title(() => {
-                  return cur.split("-").map((text) => text[0].toUpperCase() + text.substring(1).toLowerCase()).join(" ");
-                });
-                if (cur === "done") {
-                  call.abort();
-                  restartBtnDisabled(() => false);
-                }
-              }, { signal: call.signal });
-              call.text.listen(({ cur }) => {
-                text(() => cur);
-              }, { signal: call.signal });
-            },
-          }),
-          E("button", {
-            className: "p-1 bg-sky-100 text-slate-900 cursor-pointer disabled:cursor-not-allowed border border-cyan-800 rounded",
-            children: "Restart",
-            disabled: restartBtnDisabled,
-            onClick() {
-              if (restartBtnDisabled.value) return;
-              restartBtnDisabled(() => true);
-              title(() => "Did you know [REDACTED]?");
-              startBtnDisabled(() => false);
-            },
-          }),
-        ]),
-        qE("p", text)
-      ]);
+      return (
+        <div>
+          <h1>Streaming API Endpoint Example</h1>
+          <h2>Simple Streaming Through Generator Functions</h2>
+          <h2 className="text-xl font-bold">{title}</h2>
+          <div className="flex gap-4">
+            <button
+              className="p-1 bg-sky-100 text-slate-900 cursor-pointer disabled:cursor-not-allowed border border-cyan-700 rounded"
+              disabled={startBtnDisabled}
+              onClick={() => {
+                if (startBtnDisabled.value) return;
+                title(() => "Requesting...");
+                startBtnDisabled(() => true);
+                const call = createStreamingCall();
+                call.title.listen(({ cur }) => {
+                  title(() => {
+                    return cur.split("-").map((text) => text[0].toUpperCase() + text.substring(1).toLowerCase()).join(" ");
+                  });
+                  if (cur === "done") {
+                    call.abort();
+                    restartBtnDisabled(() => false);
+                  }
+                }, { signal: call.signal });
+                call.text.listen(({ cur }) => {
+                  text(() => cur);
+                }, { signal: call.signal });
+              }}
+            >
+              Start Stream
+            </button>
+            <button
+              className="p-1 bg-sky-100 text-slate-900 cursor-pointer disabled:cursor-not-allowed border border-cyan-800 rounded"
+              disabled={restartBtnDisabled}
+              onClick={() => {
+                if (restartBtnDisabled.value) return;
+                restartBtnDisabled(() => true);
+                title(() => "Did you know [REDACTED]?");
+                startBtnDisabled(() => false);
+              }}
+            >
+              Restart
+            </button>
+          </div>
+          <p>{text}</p>
+        </div>
+      );
     }))
   .build();
 

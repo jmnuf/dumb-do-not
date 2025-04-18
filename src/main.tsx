@@ -1,6 +1,6 @@
-import { initPWA } from './pwa.ts';
-import { setupRouting } from './routing.ts';
-import { routes } from "./routes.ts";
+import { initPWA } from './pwa';
+import { setupRouting } from './routing';
+import { routes } from "./routes";
 import './style.css';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
