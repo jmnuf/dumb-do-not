@@ -1,11 +1,21 @@
-import { Elysia, t } from "elysia";
+import { summonAncientOne } from "@jmnuf/ao/ancients";
+
 import { sql, eq, and } from "drizzle-orm";
 import { db, notebooks, users, notes } from "../db/index.ts";
 import { getUser } from "./users.ts";
 import { handleSessionCookieCheck } from "../session.ts";
+import { Res } from "@jmnuf/results";
+import { z } from "zod";
 
-export const notebook = new Elysia({ prefix: "/notebook" })
-  .post("/new", async ({ cookie: cookies, body, error }) => {
+const validBody = <T>(p: Request, s: { parse: (data: any) => T }) => Res.asyncCall(() => p.json().then(s.parse.bind(s)));
+
+export const notebook = summonAncientOne({ prefix: "/notebook" })
+  .post("/new", async ({ cookies, request, error }) => {
+    const bodyRes = await validBody(request, z.object({ name: z.string(), public: z.boolean().default(false) }));
+    if (!bodyRes.ok) return error(400, JSON.stringify({ message: bodyRes.error.message }));
+    const body = bodyRes.value;
+    // z.object({ body: z.object({ name: z.string(), public: z.boolean().default(false) }) })
+
     const cookieResult = await handleSessionCookieCheck(
       cookies,
       () => error(400),
@@ -29,9 +39,18 @@ export const notebook = new Elysia({ prefix: "/notebook" })
       return { created: false, message: "Failed to create notebook: " + result.error.message }
     }
     return { created: true, notebook: result.value, message: "Created notebook succesfully" };
-  }, { body: t.Object({ name: t.String(), public: t.Boolean({ default: false }) }) })
-  .guard({ params: t.Object({ notebookId: t.Integer() }) })
-  .get("/:notebookId", async ({ cookie: cookies, params: { notebookId }, error }) => {
+  })
+  // .guard({ params: t.Object({ notebookId: t.Integer() }) })
+  .get("/:notebookId", async ({ cookies, params, error }) => {
+    const nbIdRes = Res.syncCall(() => {
+      const n = parseInt(params.notebookId);
+      if (Number.isNaN(n)) throw new Error();
+      if (!Number.isFinite(n)) throw new Error();
+      return n;
+    });
+    if (!nbIdRes.ok) return error(400, JSON.stringify({ message: nbIdRes.error.message }));
+    const notebookId = nbIdRes.value;
+
     const result = await handleSessionCookieCheck(
       cookies,
       async (session) => {

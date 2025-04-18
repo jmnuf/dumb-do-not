@@ -1,23 +1,36 @@
-import { Elysia, t } from "elysia";
 import { sql, eq, and } from "drizzle-orm";
-import { db, notes, notebooks, todos } from "../db/index.ts";
-import { getUser } from "./users.ts";
-import { handleSessionCookieCheck } from "../session.ts";
+import { z } from "zod";
+import { summonAncientOne } from "@jmnuf/ao/ancients";
+import { Res } from "@jmnuf/results";
 
-export const note = new Elysia({ prefix: "/note" })
-  .post("/new", async ({ cookie: cookies, body, error }) => {
+import { db, notes, notebooks, todos } from "../db/index";
+import { getUser } from "./users";
+import { handleSessionCookieCheck } from "../session";
+
+
+export const note = summonAncientOne({ prefix: "/note" })
+  .post("/new", async ({ cookies, request, error }) => {
     const cookieResult = await handleSessionCookieCheck(
       cookies,
-      () => error(400),
-      () => error(401),
+      () => 400,
+      () => 401,
     );
     if (cookieResult.handled) {
-      return cookieResult.response;
+      return error(cookieResult.response);
     }
 
     const session = cookieResult.session;
     const user = await getUser(session.user.id);
     if (!user) return error(401);
+    const bodySchema = z.object({
+      name: z.string(),
+      notebookId: z.number(),
+      public: z.boolean().default(false),
+      content: z.string().default(""),
+    });
+    const bodyRes = await Res.asyncCall(() => request.json().then((json) => bodySchema.parse(json)));
+    if (!bodyRes.ok) return error(400);
+    const body = bodyRes.value;
     const result = (
       await db.insert(notes)
         .values({
@@ -35,27 +48,37 @@ export const note = new Elysia({ prefix: "/note" })
       return { created: false, message: "Failed to create note: " + result.error.message }
     }
     return { created: true, notebook: result.value, message: "Created notebook succesfully" };
-  }, { body: t.Object({ name: t.String(), notebookId: t.Integer(), public: t.Boolean({ default: false }), content: t.String({ default: "" }) }) })
-  .guard({ params: t.Object({ noteId: t.Integer() }) })
-  .get("/:noteId", async ({ cookie: cookies, params: { noteId }, error }) => {
+  })
+  .get("/:noteId", async ({ cookies, params, error }) => {
+    const noteIdRes = Res.syncCall(() => {
+      const n = parseInt(params.noteId);
+      if (!Number.isNaN(n)) throw new Error();
+      if (n < 1) throw new Error();
+      return n;
+    });
+    if (!noteIdRes.ok) return error(400);
+    const noteId = noteIdRes.value;
+
     const cookieResult = await handleSessionCookieCheck(
       cookies,
       async (session) => {
         const data = await getNote(noteId);
-        if (!data) return { data, session } as const;
-        if (!data.public) return error(401);
+        if (data && !data.public) return error(401);
         return { data, session } as const;
       },
-      () => error(401),
+      () => 401,
     );
     if (cookieResult.handled) {
+      const r = cookieResult.response;
+      if (typeof r === "number") {
+        return error(r);
+      }
       return cookieResult.response;
     }
 
     const session = cookieResult.session;
     const data = await getNote(noteId);
-    if (!data) return { data, session: session.status } as const;
-    if (!data.public) {
+    if (data && !data.public) {
       const user = await getUser(session.user.id);
       if (!user || user.id != data.ownerId) {
         return error(401);

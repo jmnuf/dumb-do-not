@@ -1,45 +1,40 @@
-import { Elysia, t } from "elysia";
 import { sql, eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db, users, notebooks, sessions } from "../db/index.ts";
 import { env } from "../../env.ts";
 import { publicNotebooksByUser } from "./notebooks.ts";
 import { encryptCookie, handleSessionCookieCheck, SESSION_COOKIE } from "../session.ts";
+import { z } from "zod";
 import { Res } from "@jmnuf/results";
+import { summonAncientOne } from "@jmnuf/ao/ancients";
 
-export const user = new Elysia({ prefix: "/user" })
-  .get("/isauthed", async ({ cookie: cookies, error }) => {
+const validBody = <T>(p: Request, s: { parse: (data: any) => T }) => Res.asyncCall(() => p.json().then(s.parse.bind(s)));
+
+export const user = summonAncientOne({ prefix: "/user" })
+  .get("/isauthed", async ({ cookies, error }) => {
     const cookieResult = await handleSessionCookieCheck(
       cookies,
-      () => ({ authed: false } as const),
-      () => error(400, { message: "Invalid cookie set" }),
+      () => ([200, { authed: false }] as const),
+      () => ([401, { message: "Invalid cookie set" }] as const),
     );
     if (cookieResult.handled) {
-      return cookieResult.response;
+      const [code, data] = cookieResult.response;
+      if (code === 200) {
+        return data;
+      }
+      const msg = JSON.stringify(data);
+      return error(code, msg);
     }
     const session = cookieResult.session;
     const data = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, sql`${session.user.id}`));
-    if (data.length === 0) return error(400, { message: "No session for user with such id was found" });
+    if (data.length === 0) return error(400, JSON.stringify({ message: "No session for user with such id was found" }));
     const user = data[0];
     return { authed: true, session: { id: session.id, user: user } } as const;
-  }, {
-    response: {
-      200: t.Union([
-        t.Object({
-          authed: t.Literal(false),
-        }),
-        t.Object({
-          authed: t.Literal(true),
-          session: t.Object({
-            id: t.Number(),
-            user: t.Object({ id: t.Number(), name: t.String() }),
-          }),
-        }),
-      ]),
-      400: t.Object({ message: t.String(), }),
-    },
   })
-  .post("/new", async ({ cookie: cookies, body }) => {
+  .post("/new", async ({ cookies, request, error }) => {
+    const bodyRes = await validBody(request, z.object({ username: z.string(), password: z.string() }));
+    if (!bodyRes.ok) return error(400, JSON.stringify({ message: bodyRes.error.message }));
+    const body = bodyRes.value;
     const name = body.username;
     const existingUsers = await db.select({ name: users.name }).from(users).where(eq(users.name, sql`${name}`));
     if (existingUsers.length >= 1) {
@@ -73,31 +68,19 @@ export const user = new Elysia({ prefix: "/user" })
       cookie.secure = env.NODE_ENV === "production";
     }
     return response;
-  }, {
-    body: t.Object({ username: t.String(), password: t.String() }),
-    response: {
-      200: t.Union([
-        t.Object({
-          created: t.Literal(false),
-          message: t.String(),
-        }),
-        t.Object({
-          created: t.Literal(true),
-          id: t.Integer(),
-          sessionCreated: t.Boolean(),
-          message: t.String(),
-        })
-      ]),
-    },
   })
-  .post("/login", async ({ cookie: cookies, body }) => {
+  .post("/login", async ({ cookies, request, error }) => {
+    const bodyRes = await validBody(request, z.object({ username: z.string(), password: z.string() }));
+    if (!bodyRes.ok) return error(400, JSON.stringify({ message: bodyRes.error.message }));
+    const body = bodyRes.value;
+
     const cookie = cookies[SESSION_COOKIE];
     const checkResult = await handleSessionCookieCheck(
       cookies,
       () => true,
       () => cookie.remove(),
     );
-    if (checkResult.session) {
+    if (checkResult.handled == false) {
       return { ok: true, user: checkResult.session.user, message: "already logged into an account" as string };
     }
 
@@ -119,33 +102,48 @@ export const user = new Elysia({ prefix: "/user" })
     });
     cookie.secure = env.NODE_ENV === "production";
     return { ok: true, message: "Succesfully logged in" as string, user: userData };
-  }, {
-    body: t.Object({ username: t.String(), password: t.String() }),
-    response: {
-      200: t.Union([
-        t.Object({ ok: t.Literal(false), message: t.String() }),
-        t.Object({
-          ok: t.Literal(true),
-          message: t.String(),
-          user: t.Object({
-            id: t.Number(),
-            name: t.String(),
-          }),
-        }),
-      ]),
-    },
   })
-  .guard({ params: t.Object({ userId: t.Integer(), }), })
-  .get("/:userId/notebooks", async ({ cookie: cookies, query, params: { userId }, error }) => {
-    const limit = query.limit ?? 25;
-    const offset = (query.offset ?? 0) + 1;
+  // .guard({ params: t.Object({ userId: t.Integer(), }), })
+  .get("/:userId/notebooks", async ({ cookies, query, params, error }) => {
+    const userIdRes = Res.syncCall(() => {
+      const n = parseInt(params.userId);
+      if (Number.isNaN(n)) throw new Error();
+      if (!Number.isFinite(n)) throw new Error();
+      return n;
+    });
+    if (!userIdRes.ok) return error(400, JSON.stringify({ message: userIdRes.error.message }));
+    const userId = userIdRes.value;
+
+    const { limit, offset } = ((lim, off) => {
+      let limit = 25;
+      let offset = 0;
+
+      if (lim) {
+        if (Array.isArray(lim)) lim = lim[0]!;
+        const nl = parseInt(lim);
+        if (!Number.isNaN(nl) && Number.isFinite(nl) && nl > 0) {
+          limit = nl;
+        }
+      }
+      if (off) {
+        if (Array.isArray(off)) off = off[0]!;
+        const no = parseInt(off);
+        if (!Number.isNaN(no) && Number.isFinite(no) && no > 0) {
+          offset = no;
+        }
+      }
+
+      offset += 1;
+      return { limit, offset };
+    })(query.limit, query.offset);
+
     const cookieResult = await handleSessionCookieCheck(
       cookies,
       async (session) => {
         const list = await publicNotebooksByUser({ userId, limit, offset });
         return { list, session };
       },
-      () => error(400, { message: "User not found" }),
+      () => error(400, JSON.stringify({ message: "User not found" })),
     );
     if (cookieResult.handled) {
       return cookieResult.response;
@@ -164,18 +162,6 @@ export const user = new Elysia({ prefix: "/user" })
       .where(eq(notebooks.ownerId, sql`${userId}`))
       .limit(limit).offset(limit * offset);
     return { list, session }
-  }, {
-    query: t.Optional(t.Object({
-      limit: t.Integer({ minimum: 1 }),
-      offset: t.Integer({ minimum: 0 }),
-    })),
-    response: {
-      200: t.Object({
-        list: t.Array(t.Object({ id: t.Number(), name: t.String(), })),
-        session: t.Union((["none", "expired", "active"] as const).map((v) => t.Literal(v))),
-      }),
-      400: t.Object({ message: t.String(), }),
-    },
   });
 
 export async function getUser(userId: number) {

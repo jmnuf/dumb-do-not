@@ -1,15 +1,11 @@
 {
   "devCommand": "vite --port $PORT",
   "functions": {
-    "api/**/*.ts": {
+    "api/ao-handler.ts": {
       "includeFiles": "./src/server/**/*.ts"
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/elysia" },
-    { "source": "/((?!api/).*)", "destination": "/" }
-  ],
-  "crons": [
-    { "path": "/api/cron/kill-sessions", "schedule": "0 0 * * *" }
+    { "source": "/api/:path*", "destination": "/api/ao-handler" }
   ]
 }

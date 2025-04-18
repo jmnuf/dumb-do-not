@@ -1,8 +1,8 @@
-import { Elysia } from "elysia";
 import { sql, lte } from "drizzle-orm";
 import { db, sessions } from "../db/index.ts";
+import { summonAncientOne } from "@jmnuf/ao/ancients";
 
-export const cron = new Elysia({ prefix: "/cron" })
+export const cron = summonAncientOne({ prefix: "/cron" })
   .get("/kill-sessions", async () => {
     try {
       const result = await db.delete(sessions).where(lte(sessions.killAt, sql`(unixepoch())`));

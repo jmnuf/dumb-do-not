@@ -1,6 +1,6 @@
 import { sql, eq } from "drizzle-orm";
 import { z } from "zod";
-import type { Cookie } from "elysia";
+import type { Cookie } from "@jmnuf/ao/utils.d.ts";
 import { Res } from "@jmnuf/results";
 
 import { encrypt, decrypt } from "./encryption.ts";
@@ -15,7 +15,7 @@ export const SESSION_COOKIE_SCHEMA = z.object({
   }),
 });
 export type SessionCookie = z.infer<typeof SESSION_COOKIE_SCHEMA>;
-export type Cookies = Record<string, Cookie<string | undefined>>;
+export type Cookies = Record<string, Cookie>;
 export type SessionStatus = "none" | "expired" | "active" | "invalid";
 
 async function getSessionDataFromCookie(userSessionCookie: string | undefined) {
@@ -62,11 +62,20 @@ async function checkSessionData(sessionData: z.infer<typeof SESSION_COOKIE_SCHEM
   return "active";
 }
 
+type SessionCookieInfo = {
+  id: number;
+  user: {
+    id: number;
+    name: string;
+  };
+  status: "active";
+};
+
 export async function handleSessionCookieCheck<TUnAuthed, TUnAuthorized>(
   cookies: Cookies,
   onUnAuthed: (session: SessionStatus) => TUnAuthed,
   onUnAuthorized: () => TUnAuthorized
-) {
+): Promise<{ handled: true, response: Awaited<TUnAuthed | TUnAuthorized> } | { handled: false, session: SessionCookieInfo }> {
   const cookie = cookies[SESSION_COOKIE];
   const sessionData = await getSessionDataFromCookie(cookie.value);
   if (sessionData === null) {
