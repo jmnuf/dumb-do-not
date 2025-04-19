@@ -3,7 +3,7 @@ import { E } from "./E";
 import { Res, Result } from "@jmnuf/results";
 import type { Prettify } from "./utils";
 import { Arr } from "./utils";
-import { FindPathParams, SplitString } from "./server/AncientOnes/utils";
+import type { FindPathParams, SplitString } from "@jmnuf/ao/utils";
 
 export type HistoryData = Record<string, unknown> | undefined;
 

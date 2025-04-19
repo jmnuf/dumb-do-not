@@ -152,6 +152,7 @@ export const pages = {
         }
       }
       if (!prefetching && !this.pageData.apiHealth) {
+        // @ts-expect-error @jmnuf/ao types seem to not be working correctly
         this.pageData.apiHealth = apiFetchSignal(api.health.get());
         this.pageData.message = this.pageData.apiHealth.computed((state) => {
           if (state.status === "fetching") {
