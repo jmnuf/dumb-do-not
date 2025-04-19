@@ -2,7 +2,7 @@
   "devCommand": "vite --port $PORT",
   "functions": {
     "api/ao-handler.ts": {
-      "includeFiles": "./src/server/**/*.ts"
+      "includeFiles": "./src/{env.ts,/server/**/*.ts}"
     }
   },
   "rewrites": [
