@@ -5,10 +5,34 @@ import { env } from "../../env.ts";
 import { publicNotebooksByUser } from "./notebooks.ts";
 import { encryptCookie, handleSessionCookieCheck, SESSION_COOKIE } from "../session.ts";
 import { z } from "zod";
-import { Res } from "@jmnuf/results";
+import { fromError } from "zod-validation-error";
+import { Res, Result } from "@jmnuf/results";
 import { summonAncientOne } from "@jmnuf/ao/ancients";
 
-const validBody = <T>(p: Request, s: { parse: (data: any) => T }) => Res.asyncCall(() => p.json().then(s.parse.bind(s)));
+const pipe = <T, R>(result: Result<T>, mapFn: (value: T) => R) => result.ok ? Res.syncCall(() => mapFn(result.value)) : result;
+
+const validBody = async <T>(request: Request, s: { parse: (data: any) => T }) => {
+  const body = await Res.asyncCall(async () => {
+    const contentType = request.headers.get("content-type");
+    if (contentType && contentType.startsWith("multipart/form-data")) {
+      const formData = await request.formData();
+      const data = {} as Record<string, unknown>;
+      for (const [key, val] of formData.entries()) {
+        data[key] = val;
+      }
+      console.log("[INFO] Read form data", data);
+      return data as unknown;
+    }
+    return (await request.json()) as unknown;
+  });
+
+  const result = pipe(body, s.parse.bind(s));
+  if (!result.ok && result.error instanceof z.ZodError) {
+    result.error = fromError(result.error);
+  }
+
+  return result;
+};
 
 export const user = summonAncientOne({ prefix: "/user" })
   .get("/isauthed", async ({ cookies, error }) => {
@@ -32,8 +56,12 @@ export const user = summonAncientOne({ prefix: "/user" })
     return { authed: true, session: { id: session.id, user: user } } as const;
   })
   .post("/new", async ({ cookies, request, error }) => {
-    const bodyRes = await validBody(request, z.object({ username: z.string(), password: z.string() }));
-    if (!bodyRes.ok) return error(400, JSON.stringify({ message: bodyRes.error.message }));
+    const bodyRes = await validBody(request, z.object({ username: z.string().min(3).max(26), password: z.string().min(4) }));
+    if (!bodyRes.ok) {
+      const err = bodyRes.error;
+      error(400, JSON.stringify({ message: err.message }));
+      throw err;
+    }
     const body = bodyRes.value;
     const name = body.username;
     const existingUsers = await db.select({ name: users.name }).from(users).where(eq(users.name, sql`${name}`));
@@ -71,7 +99,11 @@ export const user = summonAncientOne({ prefix: "/user" })
   })
   .post("/login", async ({ cookies, request, error }) => {
     const bodyRes = await validBody(request, z.object({ username: z.string(), password: z.string() }));
-    if (!bodyRes.ok) return error(400, JSON.stringify({ message: bodyRes.error.message }));
+    if (!bodyRes.ok) {
+      const err = bodyRes.error;
+      error(400, JSON.stringify({ message: err.message }));
+      throw err;
+    }
     const body = bodyRes.value;
 
     const cookie = cookies[SESSION_COOKIE];
