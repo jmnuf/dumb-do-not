@@ -80,3 +80,56 @@ export async function decrypt(base64Ciphertext: string, key?: CryptoKey) {
 
   return JSON.parse(decryptedData) as unknown;
 }
+
+
+const PASS_HASHING_ITERATIONS = 10_000;
+const PASS_HASHING_KEY_LENGTH = 32;
+const PASS_HASHING_SALT_LENGTH = 16;
+
+export async function genSalt(): Promise<string> {
+  const salt = new Uint8Array(PASS_HASHING_SALT_LENGTH);
+  crypto.getRandomValues(salt);
+  return Array.from(salt, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export async function hash(password: string, salt: string, storeSalt: boolean = true): Promise<string> {
+  const textEncoder = new TextEncoder();
+  const passwordBuffer = textEncoder.encode(password);
+  const saltBuffer = textEncoder.encode(salt);
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    passwordBuffer,
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey', 'deriveBits'] // Only need deriveKey here
+  );
+
+  const derivedKeyBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBuffer,
+      iterations: PASS_HASHING_ITERATIONS,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    PASS_HASHING_KEY_LENGTH * 8 // Length in bits
+  );
+
+  const hashArray = Array.from(new Uint8Array(derivedKeyBits));
+  const hashed = hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+  if (!storeSalt) {
+    return hashed;
+  }
+
+  return salt + ':' + hashed;
+}
+
+export async function compare(password: string, storedHash: string): Promise<boolean> {
+  const [salt, ogHash] = storedHash.split(':');
+  const nwHash = await hash(password, salt, false);
+  return nwHash === ogHash;
+}
+
+

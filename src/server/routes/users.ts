@@ -1,5 +1,5 @@
 import { sql, eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
+import { hash, compare, genSalt } from "../encryption";
 import { db, users, notebooks, sessions } from "../db/index.ts";
 import { env } from "../../env.ts";
 import { publicNotebooksByUser } from "./notebooks.ts";
@@ -40,8 +40,8 @@ export const user = summonAncientOne({ prefix: "/user" })
     if (existingUsers.length >= 1) {
       return { created: false, message: "Username already in use" };
     }
-    const salt = await bcrypt.genSalt(12);
-    const password = await bcrypt.hash(body.password, salt);
+    const salt = await genSalt();
+    const password = await hash(body.password, salt);
     const userResult = await db.insert(users).values({ name, salt, password }).returning({ id: users.id });
     if (userResult.length === 0) {
       return { created: false, message: "Failed to create user" };
@@ -86,7 +86,7 @@ export const user = summonAncientOne({ prefix: "/user" })
 
     const user = await getUserByName(body.username);
     if (!user) return { ok: false, message: "No user with such a name" };
-    const aligned = await bcrypt.compare(body.password, user.password);
+    const aligned = await compare(body.password, user.password);
     if (!aligned) {
       return { ok: false, message: "Incorrect password" as string };
     }
