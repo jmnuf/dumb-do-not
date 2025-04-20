@@ -23,7 +23,10 @@ const validBody = async <T>(request: Request, s: { parse: (data: any) => T }) =>
       console.log("[INFO] Read form data", data);
       return data as unknown;
     }
-    return (await request.json()) as unknown;
+    if (contentType && contentType.startsWith("application/json")) {
+      return (await request.json()) as unknown;
+    }
+    throw new Error("Unsupported body content type");
   });
 
   const result = pipe(body, s.parse.bind(s));
@@ -59,8 +62,8 @@ export const user = summonAncientOne({ prefix: "/user" })
     const bodyRes = await validBody(request, z.object({ username: z.string().min(3).max(26), password: z.string().min(4) }));
     if (!bodyRes.ok) {
       const err = bodyRes.error;
-      error(400, JSON.stringify({ message: err.message }));
-      throw err;
+      const response = "details" in err ? { message: err.message, details: err.details } : { message: err.message };
+      throw error(400, JSON.stringify(response));
     }
     const body = bodyRes.value;
     const name = body.username;
