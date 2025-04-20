@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@jmnuf/ao": "^0.5.2",
-    "@jmnuf/results": "^1.0.0",
+    "@jmnuf/results": "^1.1.0",
     "@jmnuf/wuonix": "^1.0.3",
     "@libsql/client": "^0.14.0",
     "@t3-oss/env-core": "^0.12.0",

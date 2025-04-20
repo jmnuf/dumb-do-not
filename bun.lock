@@ -5,7 +5,7 @@
       "name": "dumb-do-not",
       "dependencies": {
         "@jmnuf/ao": "^0.5.2",
-        "@jmnuf/results": "^1.0.0",
+        "@jmnuf/results": "^1.1.0",
         "@jmnuf/wuonix": "^1.0.3",
         "@libsql/client": "^0.14.0",
         "@t3-oss/env-core": "^0.12.0",
@@ -289,7 +289,7 @@
 
     "@jmnuf/ao": ["@jmnuf/ao@0.5.2", "", { "peerDependencies": { "typescript": "^5.8.2" } }, "sha512-6GTeISQJ8Mj+7dcMEZgc+mAEpTkCvj2Y/WMTexTuYlgj60VZaCKdGfZNryw7reNiqNyc9WhN+FAmxjJKqDMkDA=="],
 
-    "@jmnuf/results": ["@jmnuf/results@1.0.0", "", {}, "sha512-r4obM//16KWM3jcAXQDKc3U6YRvZb1/yFFdFy2ZaKiQKRWZdJjVk8yBgTCD0zkznqbYXtQ6mHIjUzozUJNo68w=="],
+    "@jmnuf/results": ["@jmnuf/results@1.1.0", "", {}, "sha512-wFMtSrErbKEAKqlcShGZCrngRe+BwgbeeiSVr0SmGyZGlsMtHT79Ql/34wtehFEaZ74crQdasxGBglWiiNADzA=="],
 
     "@jmnuf/wuonix": ["@jmnuf/wuonix@1.0.3", "", { "dependencies": { "@jmnuf/results": "^1.0.0" } }, "sha512-pB60rOWXMHV67zN7ceLy1QJVtCs6znUziI+1PFeapSbcG8RhxmnaeiiaV7yx2+DhmYNe1lM7/D/aa6vnkTPFvA=="],
 
@@ -1364,6 +1364,8 @@
     "@esbuild-kit/core-utils/esbuild": ["esbuild@0.18.20", "", { "optionalDependencies": { "@esbuild/android-arm": "0.18.20", "@esbuild/android-arm64": "0.18.20", "@esbuild/android-x64": "0.18.20", "@esbuild/darwin-arm64": "0.18.20", "@esbuild/darwin-x64": "0.18.20", "@esbuild/freebsd-arm64": "0.18.20", "@esbuild/freebsd-x64": "0.18.20", "@esbuild/linux-arm": "0.18.20", "@esbuild/linux-arm64": "0.18.20", "@esbuild/linux-ia32": "0.18.20", "@esbuild/linux-loong64": "0.18.20", "@esbuild/linux-mips64el": "0.18.20", "@esbuild/linux-ppc64": "0.18.20", "@esbuild/linux-riscv64": "0.18.20", "@esbuild/linux-s390x": "0.18.20", "@esbuild/linux-x64": "0.18.20", "@esbuild/netbsd-x64": "0.18.20", "@esbuild/openbsd-x64": "0.18.20", "@esbuild/sunos-x64": "0.18.20", "@esbuild/win32-arm64": "0.18.20", "@esbuild/win32-ia32": "0.18.20", "@esbuild/win32-x64": "0.18.20" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-ceqxoedUrcayh7Y7ZX6NdbbDzGROiyVBgC4PriJThBKSVPWnnFHZAkfI1lJT8QFkOwH4qOS2SJkS4wvpGl8BpA=="],
 
     "@isaacs/fs-minipass/minipass": ["minipass@7.1.2", "", {}, "sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw=="],
+
+    "@jmnuf/wuonix/@jmnuf/results": ["@jmnuf/results@1.0.0", "", {}, "sha512-r4obM//16KWM3jcAXQDKc3U6YRvZb1/yFFdFy2ZaKiQKRWZdJjVk8yBgTCD0zkznqbYXtQ6mHIjUzozUJNo68w=="],
 
     "@mapbox/node-pre-gyp/node-fetch": ["node-fetch@2.6.7", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-ZjMPFEfVx5j+y2yF35Kzx5sF7kDzxuDj6ziH4FFbOp87zKDZNx8yExJIb05OGF4Nlt9IHFIMBkRl41VdvcNdbQ=="],
 
