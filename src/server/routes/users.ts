@@ -1,41 +1,14 @@
 import { sql, eq } from "drizzle-orm";
 import { hash, compare, genSalt } from "../encryption";
-import { db, users, notebooks, sessions } from "../db/index.ts";
-import { env } from "../../env.ts";
-import { publicNotebooksByUser } from "./notebooks.ts";
-import { encryptCookie, handleSessionCookieCheck, SESSION_COOKIE } from "../session.ts";
+import { db, users, notebooks, sessions } from "../db/index";
+import { env } from "../../env";
+import { publicNotebooksByUser } from "./notebooks";
+import { encryptCookie, handleSessionCookieCheck, SESSION_COOKIE } from "../session";
 import { z } from "zod";
-import { fromError } from "zod-validation-error";
-import { Res, Result } from "@jmnuf/results";
+import { Res } from "@jmnuf/results";
 import { summonAncientOne } from "@jmnuf/ao/ancients";
+import { readBodyAs } from "../utility";
 
-const pipe = <T, R>(result: Result<T>, mapFn: (value: T) => R) => result.ok ? Res.syncCall(() => mapFn(result.value)) : result;
-
-const validBody = async <T>(request: Request, s: { parse: (data: any) => T }) => {
-  const body = await Res.asyncCall(async () => {
-    const contentType = request.headers.get("content-type");
-    if (contentType && contentType.startsWith("multipart/form-data")) {
-      const formData = await request.formData();
-      const data = {} as Record<string, unknown>;
-      for (const [key, val] of formData.entries()) {
-        data[key] = val;
-      }
-      console.log("[INFO] Read form data", data);
-      return data as unknown;
-    }
-    if (contentType && contentType.startsWith("application/json")) {
-      return (await request.json()) as unknown;
-    }
-    throw new Error("Unsupported body content type");
-  });
-
-  const result = pipe(body, s.parse.bind(s));
-  if (!result.ok && result.error instanceof z.ZodError) {
-    result.error = fromError(result.error);
-  }
-
-  return result;
-};
 
 export const user = summonAncientOne({ prefix: "/user" })
   .get("/isauthed", async ({ cookies, error }) => {
@@ -59,7 +32,7 @@ export const user = summonAncientOne({ prefix: "/user" })
     return { authed: true, session: { id: session.id, user: user } } as const;
   })
   .post("/new", async ({ cookies, request, error }) => {
-    const bodyRes = await validBody(request, z.object({ username: z.string().min(3).max(26), password: z.string().min(4) }));
+    const bodyRes = await readBodyAs(request, z.object({ username: z.string().min(3).max(26), password: z.string().min(4) }));
     if (!bodyRes.ok) {
       const err = bodyRes.error;
       const response = "details" in err ? { message: err.message, details: err.details } : { message: err.message };
@@ -73,13 +46,13 @@ export const user = summonAncientOne({ prefix: "/user" })
     }
     const salt = await genSalt();
     const password = await hash(body.password, salt);
-    const userResult = await db.insert(users).values({ name, salt, password }).returning({ id: users.id });
+    const userResult = await db.insert(users).values({ id: crypto.randomUUID(), name, salt, password }).returning({ id: users.id });
     if (userResult.length === 0) {
       return { created: false, message: "Failed to create user" };
     }
     const user = userResult[0];
     const sessionResult = await Res.asyncCall(() => db.insert(sessions)
-      .values({ userId: user.id })
+      .values({ id: crypto.randomUUID(), userId: user.id })
       .returning({ id: sessions.id })
       .then((data) => data[0]));
     const response = {
@@ -87,7 +60,7 @@ export const user = summonAncientOne({ prefix: "/user" })
       id: user.id,
       sessionCreated: true,
       message: "User created"
-    } as { created: true, id: number, sessionCreated: boolean, message: string };
+    } as { created: true, id: string, sessionCreated: boolean, message: string };
     if (!sessionResult.ok) {
       response.sessionCreated = false;
     } else {
@@ -101,7 +74,7 @@ export const user = summonAncientOne({ prefix: "/user" })
     return response;
   })
   .post("/login", async ({ cookies, request, error }) => {
-    const bodyRes = await validBody(request, z.object({ username: z.string(), password: z.string() }));
+    const bodyRes = await readBodyAs(request, z.object({ username: z.string(), password: z.string() }));
     if (!bodyRes.ok) {
       const err = bodyRes.error;
       error(400, JSON.stringify({ message: err.message }));
@@ -125,7 +98,7 @@ export const user = summonAncientOne({ prefix: "/user" })
     if (!aligned) {
       return { ok: false, message: "Incorrect password" as string };
     }
-    const results = await db.insert(sessions).values({ userId: user.id }).returning({ id: sessions.id });
+    const results = await db.insert(sessions).values({ id: crypto.randomUUID(), userId: user.id }).returning({ id: sessions.id });
     if (results.length === 0) {
       return { ok: false, message: "Server failed to create session data" as string };
     }
@@ -141,10 +114,9 @@ export const user = summonAncientOne({ prefix: "/user" })
   // .guard({ params: t.Object({ userId: t.Integer(), }), })
   .get("/:userId/notebooks", async ({ cookies, query, params, error }) => {
     const userIdRes = Res.syncCall(() => {
-      const n = parseInt(params.userId);
-      if (Number.isNaN(n)) throw new Error();
-      if (!Number.isFinite(n)) throw new Error();
-      return n;
+      const id = params.userId;
+      if (id.length < 36) throw new Error("ID too short to be a UUID");
+      return id;
     });
     if (!userIdRes.ok) return error(400, JSON.stringify({ message: userIdRes.error.message }));
     const userId = userIdRes.value;
@@ -199,7 +171,7 @@ export const user = summonAncientOne({ prefix: "/user" })
     return { list, session }
   });
 
-export async function getUser(userId: number) {
+export async function getUser(userId: string) {
   const data = await db.select().from(users).where(eq(users.id, userId));
   if (data.length === 0) return undefined;
   return data[0];

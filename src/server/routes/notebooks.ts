@@ -30,7 +30,7 @@ export const notebook = summonAncientOne({ prefix: "/notebook" })
     if (!user) return error(401);
     const result = (
       await db.insert(notebooks)
-        .values({ name: body.name, public: body.public, ownerId: user.id })
+        .values({ id: crypto.randomUUID(), name: body.name, public: body.public, ownerId: user.id })
         .returning({ id: notebooks.id })
         .then((data) => ({ ok: true, value: data[0].id } as const))
         .catch((err) => ({ ok: false, error: err as Error } as const))
@@ -107,7 +107,7 @@ export async function getNotebook(notebookId: number) {
   return Object.assign(notebook, { notes: notebookNotes, owner: notebook.owner! });
 }
 
-export async function publicNotebooksByUser(cfg: { userId: number; limit: number; offset: number; }) {
+export async function publicNotebooksByUser(cfg: { userId: string; limit: number; offset: number; }) {
   const data = await db.select({ id: notebooks.id, name: notebooks.name })
     .from(notebooks)
     .where(

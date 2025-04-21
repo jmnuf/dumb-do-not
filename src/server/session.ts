@@ -8,9 +8,9 @@ import { db, sessions } from "./db/index.ts";
 
 export const SESSION_COOKIE = "X-DumbDoNot-User";
 export const SESSION_COOKIE_SCHEMA = z.object({
-  session: z.coerce.number(),
+  session: z.string(),
   user: z.object({
-    id: z.coerce.number(),
+    id: z.string(),
     name: z.string(),
   }),
 });
@@ -63,9 +63,9 @@ async function checkSessionData(sessionData: z.infer<typeof SESSION_COOKIE_SCHEM
 }
 
 type SessionCookieInfo = {
-  id: number;
+  id: string;
   user: {
-    id: number;
+    id: string;
     name: string;
   };
   status: "active";

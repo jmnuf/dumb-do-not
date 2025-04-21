@@ -1,11 +1,11 @@
 import { sql, eq, and } from "drizzle-orm";
 import { z } from "zod";
 import { summonAncientOne } from "@jmnuf/ao/ancients";
-import { Res } from "@jmnuf/results";
 
 import { db, notes, notebooks, todos } from "../db/index";
 import { getUser } from "./users";
 import { handleSessionCookieCheck } from "../session";
+import { isUuidLike, readBodyAs } from "../utility";
 
 
 export const note = summonAncientOne({ prefix: "/note" })
@@ -22,18 +22,18 @@ export const note = summonAncientOne({ prefix: "/note" })
     const session = cookieResult.session;
     const user = await getUser(session.user.id);
     if (!user) return error(401);
-    const bodySchema = z.object({
+    const bodyRes = await readBodyAs(request, z.object({
       name: z.string(),
-      notebookId: z.number(),
+      notebookId: z.string(),
       public: z.boolean().default(false),
       content: z.string().default(""),
-    });
-    const bodyRes = await Res.asyncCall(() => request.json().then((json) => bodySchema.parse(json)));
+    }));
     if (!bodyRes.ok) return error(400);
     const body = bodyRes.value;
     const result = (
       await db.insert(notes)
         .values({
+          id: crypto.randomUUID(),
           name: body.name,
           notebookId: body.notebookId,
           content: body.content,
@@ -50,13 +50,8 @@ export const note = summonAncientOne({ prefix: "/note" })
     return { created: true, notebook: result.value, message: "Created notebook succesfully" };
   })
   .get("/:noteId", async ({ cookies, params, error }) => {
-    const noteIdRes = Res.syncCall(() => {
-      const n = parseInt(params.noteId);
-      if (!Number.isNaN(n)) throw new Error();
-      if (n < 1) throw new Error();
-      return n;
-    });
-    if (!noteIdRes.ok) return error(400);
+    const noteIdRes = isUuidLike(params.noteId);
+    if (!noteIdRes.ok) return error(400, JSON.stringify({ message: noteIdRes.error.message }));
     const noteId = noteIdRes.value;
 
     const cookieResult = await handleSessionCookieCheck(
@@ -89,7 +84,7 @@ export const note = summonAncientOne({ prefix: "/note" })
   });
 
 
-export async function getNote(noteId: number) {
+export async function getNote(noteId: string) {
   const data = await db.select({
     id: notes.id,
     ownerId: notes.ownerId,
@@ -111,7 +106,7 @@ export async function getNote(noteId: number) {
   return data[0] as typeof data[number] | undefined;
 }
 
-export async function getPublicNote(noteId: number) {
+export async function getPublicNote(noteId: string) {
   const data = await db.select({
     id: notes.id,
     ownerId: notes.ownerId,
