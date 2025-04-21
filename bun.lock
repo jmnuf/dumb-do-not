@@ -4,7 +4,7 @@
     "": {
       "name": "dumb-do-not",
       "dependencies": {
-        "@jmnuf/ao": "^0.5.2",
+        "@jmnuf/ao": "^0.5.3",
         "@jmnuf/results": "^1.1.0",
         "@jmnuf/wuonix": "^1.0.3",
         "@libsql/client": "^0.14.0",
@@ -287,7 +287,7 @@
 
     "@isaacs/fs-minipass": ["@isaacs/fs-minipass@4.0.1", "", { "dependencies": { "minipass": "^7.0.4" } }, "sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w=="],
 
-    "@jmnuf/ao": ["@jmnuf/ao@0.5.2", "", { "peerDependencies": { "typescript": "^5.8.2" } }, "sha512-6GTeISQJ8Mj+7dcMEZgc+mAEpTkCvj2Y/WMTexTuYlgj60VZaCKdGfZNryw7reNiqNyc9WhN+FAmxjJKqDMkDA=="],
+    "@jmnuf/ao": ["@jmnuf/ao@0.5.3", "", { "peerDependencies": { "typescript": "^5.8.2" } }, "sha512-K4mF+1XWIY7TRHtao+ETi1U3cDeOAHXlrX/F2h/yI2Bcj739nT9fj8IVNxObmrzyxldrtS2NELE+MDzpk0976w=="],
 
     "@jmnuf/results": ["@jmnuf/results@1.1.0", "", {}, "sha512-wFMtSrErbKEAKqlcShGZCrngRe+BwgbeeiSVr0SmGyZGlsMtHT79Ql/34wtehFEaZ74crQdasxGBglWiiNADzA=="],
 
